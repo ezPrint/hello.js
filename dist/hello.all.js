@@ -1,4 +1,4 @@
-/*! hellojs v1.18.0 | (c) 2012-2019 Andrew Dodson | MIT https://adodson.com/hello.js/LICENSE */
+/*! hellojs v1.18.8 | (c) 2012-2021 Andrew Dodson | MIT https://adodson.com/hello.js/LICENSE */
 // ES5 Object.create
 if (!Object.create) {
 
@@ -179,6 +179,11 @@ hello.utils = {
 			}
 			else if (r && (r instanceof Object || typeof r === 'object') && a && (a instanceof Object || typeof a === 'object') && r !== a) {
 				for (var x in a) {
+					// Prevent prototype pollution
+					if (x === '__proto__' || x === 'constructor') {
+						continue;
+					}
+
 					r[x] = hello.utils.extend(r[x], a[x]);
 				}
 			}
@@ -1457,7 +1462,9 @@ hello.utils.extend(hello.utils, {
 			// Redirect to the host
 			var path = _this.qs(state.oauth_proxy, p);
 
-			location.assign(path);
+			if (isValidUrl(path)) {
+				location.assign(path);
+			}
 
 			return;
 		}
@@ -1532,7 +1539,7 @@ hello.utils.extend(hello.utils, {
 			}
 
 			// If this page is still open
-			if (p.page_uri) {
+			if (p.page_uri && isValidUrl(p.page_uri)) {
 				location.assign(p.page_uri);
 			}
 		}
@@ -1541,9 +1548,18 @@ hello.utils.extend(hello.utils, {
 		// (URI Fragments within 302 Location URI are lost over HTTPS)
 		// Loading the redirect.html before triggering the OAuth Flow seems to fix it.
 		else if ('oauth_redirect' in p) {
+			var url = decodeURIComponent(p.oauth_redirect);
 
-			location.assign(decodeURIComponent(p.oauth_redirect));
+			if (isValidUrl(url)) {
+				location.assign(url);
+			}
+
 			return;
+		}
+
+		function isValidUrl(url) {
+			var regexp = /^https?:/;
+			return regexp.test(url);
 		}
 
 		// Trigger a callback to authenticate
@@ -2185,7 +2201,7 @@ hello.utils.extend(hello.utils, {
 					// This will prompt the request to be signed as though it is OAuth1
 					then: p.proxy_response_type || (p.method.toLowerCase() === 'get' ? 'redirect' : 'proxy'),
 					method: p.method.toLowerCase(),
-					suppress_response_codes: true
+					suppress_response_codes: p.suppress_response_codes || true
 				});
 			}
 
@@ -3986,7 +4002,7 @@ if (typeof chrome === 'object' && typeof chrome.identity === 'object' && chrome.
 				// Reauthenticate
 				// https://developers.google.com/identity/protocols/
 				if (p.options.force) {
-					p.qs.approval_prompt = 'force';
+					p.qs.prompt = 'consent';
 				}
 			},
 
